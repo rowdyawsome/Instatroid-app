@@ -88,14 +88,14 @@ export default function Home() {
     try {
       if (!username) throw new Error('Username required');
 
-      // Use unavatar.io as a free Instagram avatar proxy
-      const avatarUrl = `https://unavatar.io/instagram/${username}`;
-      const avatarValid = await checkAvatar(avatarUrl);
+      const res = await fetch(`/api/avatar?username=${username}`);
 
-      if (!avatarValid) {
+      if (!res.ok) {
         setAvatarError(true);
         throw new Error('Unable to fetch Instagram profile!');
       }
+
+      const avatarUrl = `/api/avatar?username=${username}`;
 
       setUserData({
         username,
