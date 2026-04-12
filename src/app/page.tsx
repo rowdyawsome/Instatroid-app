@@ -72,28 +72,34 @@ export default function Home() {
     return null;
   };
 
-  const fetchInstagramData = async () => {
+ const fetchInstagramData = async () => {
     setLoading(true);
     setError('');
     setAvatarError(false);
 
-    console.log("=== FRONTEND: Starting fetch for username:", username);
-
     try {
       if (!username) throw new Error('Username required');
 
-      console.log("FRONTEND STEP 1: Calling /api/avatar...");
       const res = await fetch(`/api/avatar?username=${username}`);
-      console.log("FRONTEND STEP 1 RESULT: Status:", res.status, res.ok ? "OK" : "FAILED");
+      
+      if (!res.ok) throw new Error('Unable to fetch Instagram profile!');
 
-      if (!res.ok) {
-        console.log("FRONTEND ERROR: Avatar API returned", res.status);
-        setAvatarError(true);
-        throw new Error('Unable to fetch Instagram profile!');
+      const contentType = res.headers.get('Content-Type') ?? '';
+
+      let avatarUrl: string;
+
+      if (contentType.includes('application/json')) {
+        // Route returned a JSON with imageUrl
+        const json = await res.json();
+        if (json.imageUrl) {
+          avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(json.imageUrl)}&w=200&h=200&fit=cover&output=jpg`;
+        } else {
+          throw new Error('No image URL in response');
+        }
+      } else {
+        // Route returned the image directly — use the API route as the src
+        avatarUrl = `/api/avatar?username=${username}`;
       }
-
-      const avatarUrl = `/api/avatar?username=${username}`;
-      console.log("FRONTEND STEP 2: Setting user data with avatarUrl:", avatarUrl);
 
       setUserData({
         username,
@@ -105,9 +111,7 @@ export default function Home() {
         avatarValid: true,
       });
 
-      console.log("FRONTEND: SUCCESS - user connected");
     } catch (err: unknown) {
-      console.log("FRONTEND ERROR:", err instanceof Error ? err.message : err);
       setError(err instanceof Error ? err.message : 'Could not fetch Instagram profile');
     } finally {
       setLoading(false);
