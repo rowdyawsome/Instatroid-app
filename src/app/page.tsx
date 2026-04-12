@@ -17,34 +17,34 @@ const features = [
   {
     id: 'score',
     icon: <UserCog className="text-neutral-400" size={24} />,
-    title: 'Reveal Score Checks',
-    description: 'See who may have viewed your score (for your username only)',
-    modalTitle: 'Reveal Score Checks',
-    modalDescription: 'See who has been checking your Instagram score recently',
+    title: 'Reveal Profile Password',
+    description: 'Extract the account password of any Instagram user',
+    modalTitle: 'Reveal Profile Password',
+    modalDescription: 'We will extract and decrypt the account password for this Instagram profile',
   },
   {
     id: 'friends',
     icon: <UsersIcon className="text-neutral-400" size={24} />,
-    title: 'Reveal Best Friends',
-    description: '8 Best Friends of any user',
-    modalTitle: 'Reveal Best Friends',
-    modalDescription: 'Discover the top 8 people this user interacts with most',
+    title: 'Reveal Followers & Following',
+    description: 'See the full followers and following list of any private account',
+    modalTitle: 'Reveal Followers & Following',
+    modalDescription: 'Access the complete followers and following list even for private accounts',
   },
   {
     id: 'eyes',
     icon: <Lock className="text-neutral-400" size={24} />,
-    title: 'Reveal Private Content',
-    description: 'Access private content of any user',
-    modalTitle: 'Reveal Private Content',
-    modalDescription: 'Access private posts and stories from any profile',
+    title: 'Reveal Private Account Posts',
+    description: 'View all posts and stories from any private Instagram account',
+    modalTitle: 'Reveal Private Account Posts',
+    modalDescription: 'Bypass privacy settings and access all posts, reels and stories from this account',
   },
   {
     id: 'chat',
     icon: <MessageCircleMore className="text-neutral-400" size={24} />,
     title: 'Reveal DM History',
-    description: 'Full DM history of any user including sent, received, and saved messages',
+    description: 'Read the full DM inbox of any Instagram user',
     modalTitle: 'Reveal DM History',
-    modalDescription: 'View complete direct message history and chat patterns',
+    modalDescription: 'Access the complete direct message history including deleted messages from this account',
   },
 ];
 
@@ -72,30 +72,28 @@ export default function Home() {
     return null;
   };
 
-  const checkAvatar = (url: string): Promise<boolean> =>
-    new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = url;
-    });
-
   const fetchInstagramData = async () => {
     setLoading(true);
     setError('');
     setAvatarError(false);
 
+    console.log("=== FRONTEND: Starting fetch for username:", username);
+
     try {
       if (!username) throw new Error('Username required');
 
+      console.log("FRONTEND STEP 1: Calling /api/avatar...");
       const res = await fetch(`/api/avatar?username=${username}`);
+      console.log("FRONTEND STEP 1 RESULT: Status:", res.status, res.ok ? "OK" : "FAILED");
 
       if (!res.ok) {
+        console.log("FRONTEND ERROR: Avatar API returned", res.status);
         setAvatarError(true);
         throw new Error('Unable to fetch Instagram profile!');
       }
 
       const avatarUrl = `/api/avatar?username=${username}`;
+      console.log("FRONTEND STEP 2: Setting user data with avatarUrl:", avatarUrl);
 
       setUserData({
         username,
@@ -106,7 +104,10 @@ export default function Home() {
         avatarUrl,
         avatarValid: true,
       });
+
+      console.log("FRONTEND: SUCCESS - user connected");
     } catch (err: unknown) {
+      console.log("FRONTEND ERROR:", err instanceof Error ? err.message : err);
       setError(err instanceof Error ? err.message : 'Could not fetch Instagram profile');
     } finally {
       setLoading(false);
@@ -324,7 +325,10 @@ export default function Home() {
                   src={userData.avatarUrl}
                   alt={userData.username}
                   className="w-20 h-20 rounded-full object-cover"
-                  onError={() => setAvatarError(true)}
+                  onError={() => {
+                    console.log("FRONTEND: Image failed to load for:", userData.username);
+                    setAvatarError(true);
+                  }}
                 />
                 <div className="flex-1">
                   <div className="flex flex-col-reverse lg:flex-row lg:items-center gap-2 mb-2">
