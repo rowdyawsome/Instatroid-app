@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   console.log("=== AVATAR REQUEST FOR:", username, "===");
 
   try {
-    // STEP 1: Get profile data from RapidAPI
+    // STEP 1: Get the Instagram profile pic URL from RapidAPI
     const apiRes = await fetch(
       `https://instagram-scraper-stable-api.p.rapidapi.com/ig_get_fb_profile_v3.php`,
       {
@@ -27,71 +27,41 @@ export async function GET(req: Request) {
     );
 
     const data = await apiRes.json();
-    console.log("API status:", apiRes.status);
-
     const imageUrl = data?.hd_profile_pic_url_info?.url || data?.profile_pic_url;
     console.log("Image URL:", imageUrl ? "FOUND" : "NOT FOUND");
 
-    if (!imageUrl) throw new Error("No image URL");
+    if (!imageUrl) throw new Error("No image URL from API");
 
-    // STEP 2: Fetch the image — try multiple approaches for Vercel
-    let imgBuffer: ArrayBuffer | null = null;
-    let contentType = "image/jpeg";
+    // STEP 2: Use weserv.nl to proxy the image — this works on Vercel
+    // weserv.nl fetches from Instagram's CDN on our behalf from their servers
+    const weservUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}&w=200&h=200&fit=cover&output=jpg&q=85`;
+    console.log("Fetching via weserv.nl...");
 
-    // Attempt 1: Direct fetch with Instagram headers
-    try {
-      const imgRes = await fetch(imageUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
-          "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
-          "Referer": "https://www.instagram.com/",
-        },
-        signal: AbortSignal.timeout(8000),
-      });
+    const imgRes = await fetch(weservUrl, {
+      signal: AbortSignal.timeout(10000),
+    });
 
-      console.log("Direct fetch status:", imgRes.status);
+    console.log("Weserv status:", imgRes.status);
+    console.log("Weserv Content-Type:", imgRes.headers.get("Content-Type"));
 
-      if (imgRes.ok) {
-        imgBuffer = await imgRes.arrayBuffer();
-        contentType = imgRes.headers.get("Content-Type") ?? "image/jpeg";
-        console.log("Direct fetch buffer size:", imgBuffer.byteLength);
-      }
-    } catch (e) {
-      console.log("Direct fetch failed:", e instanceof Error ? e.message : String(e));
+    if (!imgRes.ok) {
+      const err = await imgRes.text();
+      console.log("Weserv error:", err.slice(0, 200));
+      throw new Error("Weserv failed: " + imgRes.status);
     }
 
-    // Attempt 2: Use images.weserv.nl as a proxy (works on Vercel)
-    if (!imgBuffer || imgBuffer.byteLength === 0) {
-      console.log("Trying weserv.nl proxy...");
-      try {
-        const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}&w=200&h=200&fit=cover&output=jpg`;
-        const proxyRes = await fetch(proxyUrl, {
-          signal: AbortSignal.timeout(8000),
-        });
+    const buffer = await imgRes.arrayBuffer();
+    console.log("Buffer size:", buffer.byteLength, "bytes");
 
-        console.log("Weserv proxy status:", proxyRes.status);
+    if (buffer.byteLength === 0) throw new Error("Empty buffer from weserv");
 
-        if (proxyRes.ok) {
-          imgBuffer = await proxyRes.arrayBuffer();
-          contentType = "image/jpeg";
-          console.log("Weserv buffer size:", imgBuffer.byteLength);
-        }
-      } catch (e) {
-        console.log("Weserv proxy failed:", e instanceof Error ? e.message : String(e));
-      }
-    }
-
-    if (imgBuffer && imgBuffer.byteLength > 0) {
-      console.log("SUCCESS ✓ Returning image");
-      return new NextResponse(imgBuffer, {
-        headers: {
-          "Content-Type": contentType,
-          "Cache-Control": "public, max-age=3600",
-        },
-      });
-    }
-
-    throw new Error("All image fetch attempts failed");
+    console.log("SUCCESS ✓");
+    return new NextResponse(buffer, {
+      headers: {
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=86400", // cache for 24hrs
+      },
+    });
 
   } catch (err) {
     console.log("FAILED:", err instanceof Error ? err.message : String(err));
