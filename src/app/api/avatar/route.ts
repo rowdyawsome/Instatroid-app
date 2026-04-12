@@ -28,11 +28,41 @@ export async function GET(req: Request) {
 
     if (!imageUrl) throw new Error("No image URL");
 
-    // Return the URL as JSON — let the frontend load it via wsrv.nl
-    return NextResponse.json({ imageUrl });
+    const imgRes = await fetch(imageUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+        "Referer": "https://www.instagram.com/",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!imgRes.ok) throw new Error("Image fetch failed");
+
+    const buffer = await imgRes.arrayBuffer();
+    if (buffer.byteLength === 0) throw new Error("Empty buffer");
+
+    return new NextResponse(buffer, {
+      headers: {
+        "Content-Type": imgRes.headers.get("Content-Type") ?? "image/jpeg",
+        "Cache-Control": "public, max-age=3600",
+      },
+    });
 
   } catch (err) {
-    console.log("API failed:", err instanceof Error ? err.message : String(err));
-    return NextResponse.json({ imageUrl: null });
+    console.log("FAILED:", err instanceof Error ? err.message : String(err));
   }
+
+  // Fallback placeholder
+  const colors = ["dc2743", "bc1888", "e6683c", "f09433", "cc2366", "8a3ab9"];
+  const colorIndex =
+    username.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
+
+  const placeholder = await fetch(
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=${colors[colorIndex]}&color=fff&size=200&bold=true&format=png&length=1`
+  );
+  const buffer = await placeholder.arrayBuffer();
+  return new NextResponse(buffer, {
+    headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=3600" },
+  });
 }

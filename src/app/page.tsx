@@ -72,7 +72,7 @@ export default function Home() {
     return null;
   };
 
- const fetchInstagramData = async () => {
+const fetchInstagramData = async () => {
     setLoading(true);
     setError('');
     setAvatarError(false);
@@ -81,25 +81,13 @@ export default function Home() {
       if (!username) throw new Error('Username required');
 
       const res = await fetch(`/api/avatar?username=${username}`);
-      
-      if (!res.ok) throw new Error('Unable to fetch Instagram profile!');
 
-      const contentType = res.headers.get('Content-Type') ?? '';
-
-      let avatarUrl: string;
-
-      if (contentType.includes('application/json')) {
-        // Route returned a JSON with imageUrl
-        const json = await res.json();
-        if (json.imageUrl) {
-          avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(json.imageUrl)}&w=200&h=200&fit=cover&output=jpg`;
-        } else {
-          throw new Error('No image URL in response');
-        }
-      } else {
-        // Route returned the image directly — use the API route as the src
-        avatarUrl = `/api/avatar?username=${username}`;
+      if (!res.ok) {
+        setAvatarError(true);
+        throw new Error('Unable to fetch Instagram profile!');
       }
+
+      const avatarUrl = `/api/avatar?username=${username}`;
 
       setUserData({
         username,
